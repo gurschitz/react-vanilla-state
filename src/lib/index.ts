@@ -1,10 +1,23 @@
 import { useEffect, useState } from 'react'
 
 export type Subscriber<Value> = (value: Value) => unknown
+
+type UpdateFn<Value> = (old: Value) => Value
+type ValueOrFn<Value> = Value | UpdateFn<Value>
+
 export type Atom<Value> = {
     read(): Value
-    set(value: Value): void
+    set(value: ValueOrFn<Value>): void
     subscribe(subscriber: Subscriber<Value>): void
+}
+
+function isFunction<Value>(
+    valueOrFn: ValueOrFn<Value>
+): valueOrFn is UpdateFn<Value> {
+    if (typeof valueOrFn === 'function') {
+        return true
+    }
+    return false
 }
 
 export function createAtom<Value>(initial: Value): Atom<Value> {
@@ -14,8 +27,12 @@ export function createAtom<Value>(initial: Value): Atom<Value> {
         read() {
             return current
         },
-        set(value: Value) {
-            current = value
+        set(valueOrFn: ValueOrFn<Value>) {
+            if (isFunction(valueOrFn)) {
+                current = valueOrFn(current)
+            } else {
+                current = valueOrFn
+            }
             subscribers.forEach((s) => s(current))
         },
         subscribe(subscriber: Subscriber<Value>) {
@@ -27,18 +44,7 @@ export function createAtom<Value>(initial: Value): Atom<Value> {
     }
 }
 
-type UpdateFn<Value> = (old: Value) => Value
-type UpdateOrFn<Value> = Value | UpdateFn<Value>
-type UpdateAction<Value> = (updateOrFn: UpdateOrFn<Value>) => void
-
-function isFunction<Value>(
-    valueOrFn: UpdateOrFn<Value>
-): valueOrFn is UpdateFn<Value> {
-    if (typeof valueOrFn === 'function') {
-        return true
-    }
-    return false
-}
+type UpdateAction<Value> = (valueOrFn: ValueOrFn<Value>) => void
 
 export function useAtom<Value>(
     atom: Atom<Value>
@@ -51,13 +57,5 @@ export function useAtom<Value>(
         })
     }, [atom])
 
-    function update(valueOrFn: UpdateOrFn<Value>) {
-        if (isFunction(valueOrFn)) {
-            atom.set(valueOrFn(atom.read()))
-        } else {
-            atom.set(valueOrFn)
-        }
-    }
-
-    return [atomState, update]
+    return [atomState, atom.set]
 }

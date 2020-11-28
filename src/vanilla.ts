@@ -4,8 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (button && counter) {
         button.addEventListener('click', () => {
-            const current = parseInt(counter.innerHTML)
-            window.atoms.counter.set(current + 1)
+            window.atoms.counter.set((current) => current + 1)
         })
 
         window.atoms.counter.subscribe((value) => {
